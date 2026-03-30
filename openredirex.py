@@ -5,6 +5,7 @@ import aiohttp
 import argparse
 import sys
 import socket
+import random
 from aiohttp import ClientConnectorError, ClientOSError, ServerDisconnectedError, ServerTimeoutError, ServerConnectionError, TooManyRedirects
 from tqdm import tqdm
 import concurrent.futures
@@ -62,6 +63,15 @@ redirect_payloads = [
 "/////example.com/",
 "////\;@example.com",
 "////example.com/"
+]
+
+RANDOM_USER_AGENTS = [
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_5) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15",
+    "Mozilla/5.0 (X11; Linux x86_64; rv:137.0) Gecko/20100101 Firefox/137.0",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:137.0) Gecko/20100101 Firefox/137.0",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_5; rv:137.0) Gecko/20100101 Firefox/137.0",
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36",
 ]
 
 async def load_payloads(payloads_file):
@@ -133,7 +143,18 @@ async def main(args):
     payloads = await load_payloads(args.payloads)
     urls = load_urls()
     tqdm.write(f'[INFO] Processing {len(urls)} URLs with {len(payloads)} payloads.')
-    async with aiohttp.ClientSession() as session:
+    selected_user_agent = None
+    if args.user_agent:
+        selected_user_agent = args.user_agent.strip()
+    elif args.random_agent:
+        selected_user_agent = random.choice(RANDOM_USER_AGENTS)
+
+    session_kwargs = {}
+    if selected_user_agent:
+        session_kwargs["headers"] = {"User-Agent": selected_user_agent}
+        tqdm.write(f'[INFO] Using User-Agent: {selected_user_agent}')
+
+    async with aiohttp.ClientSession(**session_kwargs) as session:
         semaphore = asyncio.Semaphore(args.concurrency)
         await process_urls(semaphore, session, urls, payloads, args.keyword)
 
@@ -152,7 +173,12 @@ if __name__ == "__main__":
     parser.add_argument('-p', '--payloads', help='file of payloads', required=False)
     parser.add_argument('-k', '--keyword', help='keyword in urls to replace with payload (default is FUZZ)', default="FUZZ")
     parser.add_argument('-c', '--concurrency', help='number of concurrent tasks (default is 100)', type=int, default=100)
+    user_agent_group = parser.add_mutually_exclusive_group()
+    user_agent_group.add_argument('--user-agent', help='set a custom User-Agent header')
+    user_agent_group.add_argument('--random-agent', action='store_true', help='pick a random User-Agent header for this run')
     args = parser.parse_args()
+    if args.user_agent is not None and not args.user_agent.strip():
+        parser.error('--user-agent cannot be empty')
     try:
         asyncio.run(main(args))
     except KeyboardInterrupt:

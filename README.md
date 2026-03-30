@@ -30,12 +30,14 @@ sudo chmod +x setup.sh
 The script is executed from the command line and has the following usage options:
 
 ```sh
-openredirex [-p payloads] [-k keyword] [-c concurrency]
+openredirex [-p payloads] [-k keyword] [-c concurrency] [--user-agent UA | --random-agent]
 ```
 
 - `-p`, `--payloads`: File containing a list of payloads. If not specified, a hardcoded list is used.
 - `-k`, `--keyword`: Keyword in URLs to replace with payload. Default is "FUZZ".
 - `-c`, `--concurrency`: Number of concurrent tasks. Default is 100.
+- `--user-agent`: Set a custom `User-Agent` header for all requests in the current run.
+- `--random-agent`: Automatically select one random `User-Agent` header for the current run.
 
 The script expects a list of URLs as input. Each URL should contain the keyword specified by the `-k` option. The script replaces the keyword with each of the payloads, and attempts to fetch the modified URL. 
 
@@ -43,6 +45,18 @@ Example usage:
 
 ```sh
 cat list_of_urls.txt |  openredirex -p payloads.txt -k "FUZZ" -c 50
+```
+
+Custom user-agent:
+
+```sh
+cat list_of_urls.txt | openredirex --user-agent "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36"
+```
+
+Random user-agent (one random value is picked once per run):
+
+```sh
+cat list_of_urls.txt | openredirex --random-agent
 ```
 
 
