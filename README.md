@@ -30,12 +30,13 @@ sudo chmod +x setup.sh
 The script is executed from the command line and has the following usage options:
 
 ```sh
-openredirex [-p payloads] [-k keyword] [-c concurrency] [--user-agent UA | --random-agent]
+openredirex [-p payloads] [-k keyword] [-c concurrency] [--external-server HOST] [--user-agent UA | --random-agent]
 ```
 
 - `-p`, `--payloads`: File containing a list of payloads. If not specified, a hardcoded list is used.
 - `-k`, `--keyword`: Keyword in URLs to replace with payload. Default is "FUZZ".
 - `-c`, `--concurrency`: Number of concurrent tasks. Default is 100.
+- `--external-server`: Hostname to inject into payloads instead of `example.com` (default: `example.com`).
 - `--user-agent`: Set a custom `User-Agent` header for all requests in the current run.
 - `--random-agent`: Automatically select one random `User-Agent` header for the current run.
 
@@ -57,6 +58,12 @@ Random user-agent (one random value is picked once per run):
 
 ```sh
 cat list_of_urls.txt | openredirex --random-agent
+```
+
+Use your own external server in built-in payloads:
+
+```sh
+cat list_of_urls.txt | openredirex --external-server oob.your-domain.tld
 ```
 
 

